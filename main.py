@@ -29,6 +29,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+# Habilitar CORS para el frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Permite solicitudes desde tu frontend en React
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # Configuración JWT
 SECRET_KEY = "tu_secreto"
 ALGORITHM = "HS256"
