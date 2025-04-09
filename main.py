@@ -193,27 +193,32 @@ def get_cliente(cliente_id: int, db: Session = Depends(get_db)):
 # Crear un nuevo cliente
 @app.post("/api/clientes", response_model=ClienteSchema, tags=["Clientes"])
 def create_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
-    db_cliente = db.query(ClienteModel).filter(ClienteModel.email == cliente.email).first()
-    if db_cliente:
-        raise HTTPException(status_code=400, detail="El cliente ya existe")
-    
-    new_cliente = ClienteModel(
-        nombre=cliente.nombre,
-        email=cliente.email,
-        telefono=cliente.telefono,
-        direccion=cliente.direccion,
-        nivel_membresia=cliente.nivel_membresia,
-        frecuencia_compra=cliente.frecuencia_compra
-    )
-    
-    print("Agregando cliente a la base de datos...")
-    db.add(new_cliente)
-    db.flush()  # Forzar que la consulta se ejecute inmediatamente
-    db.commit()
-    db.refresh(new_cliente)
-    print("Cliente agregado con éxito.")
-    
-    return new_cliente
+    try:
+        # Verifica si el cliente ya existe por email
+        db_cliente = db.query(ClienteModel).filter(ClienteModel.email == cliente.email).first()
+        if db_cliente:
+            raise HTTPException(status_code=400, detail="El cliente ya existe")
+
+        # Crea un nuevo cliente sin asignar id_cliente, ya que es autoincremental
+        new_cliente = ClienteModel(
+            nombre=cliente.nombre,
+            email=cliente.email,
+            telefono=cliente.telefono,
+            direccion=cliente.direccion,
+            nivel_membresia=cliente.nivel_membresia,
+            frecuencia_compra=cliente.frecuencia_compra
+        )
+        
+        # Agrega el cliente a la base de datos
+        db.add(new_cliente)
+        db.commit()
+        db.refresh(new_cliente)
+        return new_cliente
+    except Exception as e:
+        db.rollback()  # Rollback si ocurre algún error
+        print(f"Error al insertar cliente: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al insertar cliente: {str(e)}")
+
 
 
 
