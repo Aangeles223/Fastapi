@@ -15,16 +15,26 @@ from schemas import Proveedor, RecepcionMercanciaBase, RecepcionMercanciaCreate,
 from fastapi.middleware.cors import CORSMiddleware
 
 
-# Crea una instancia de FastAPI
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List, Optional
+import bcrypt
+import jwt
+from datetime import datetime, timedelta
+from database import SessionLocal
+from models import UsuarioModel
+from schemas import LoginRequest, UsuarioCreate, UsuarioResponse, RoleResponse
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
 
-
-
-# Clave secreta para JWT
+# Configuración JWT
 SECRET_KEY = "tu_secreto"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+ALGORITHM = "HS256"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
-# Dependencia que proporciona la sesión de la base de datos
+# Dependencia para la sesión de base de datos
 def get_db():
     db = SessionLocal()
     try:
@@ -32,15 +42,8 @@ def get_db():
     finally:
         db.close()
 
-
-# Endpoints
-
-# Clave secreta para JWT (ya definida más abajo, así que asegúrate de que coincida)
-SECRET_KEY = "tu_secreto"
-ALGORITHM = "HS256"
-
+# Funciones helper
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    # Compara la contraseña en plano con el hash
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -52,76 +55,55 @@ def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
 # ------------------------------------- #
 # 🔹 GESTION LOGIN                     #
 # ------------------------------------- #
-
-@app.post("/api/login", tags=["Login"])
-def login(form_data: UsuarioCreate, db: Session = Depends(get_db)):
-    # Buscar el usuario en la base de datos
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.email == form_data.email).first()
-    
-    if usuario is None:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
-    # Verificar la contraseña
-    if not bcrypt.checkpw(form_data.contraseña.encode(), usuario.contraseña.encode()):
-        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
-
-    # Generar token JWT
-    token_expires = timedelta(hours=1)
-    token = jwt.encode(
-        {"sub": usuario.email, "id_usuario": usuario.id_usuario, "exp": datetime.utcnow() + token_expires},
-        SECRET_KEY, 
-        algorithm="HS256"
-    )
-
-    return {"access_token": token, "token_type": "bearer"}
-
-
-@app.post("/api/login/empleado", tags=["Login"])
-def login_empleado(form_data: UsuarioCreate, db: Session = Depends(get_db)):
-    # Buscar el usuario con rol de empleado (suponiendo que el id_rol = 2 es para empleados)
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.email == form_data.email, UsuarioModel.id_rol == 2).first()
-    
-    if usuario is None:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
-    
-    # Verificar la contraseña
-    if not bcrypt.checkpw(form_data.contraseña.encode(), usuario.contraseña.encode()):
-        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
-    
-    # Generar token JWT
-    token_expires = timedelta(hours=1)
-    token = jwt.encode(
-        {"sub": usuario.email, "id_usuario": usuario.id_usuario, "exp": datetime.utcnow() + token_expires},
-        SECRET_KEY, 
-        algorithm="HS256"
-    )
-
-    return {"access_token": token, "token_type": "bearer", "usuario": usuario}
-
-
-@app.post("/api/login", response_model=dict)
-async def login(login: LoginRequest, db: Session = Depends(get_db)):
-    # Extraer datos del modelo en lugar de parámetros directos
-    email = login.email
-    password = login.password
-
-    # Buscar usuario en la base de datos
-    usuario = db.query(Usuario).filter(Usuario.email == email).first()
+@app.post("/api/login", response_model=dict, tags=["Login"])
+def login(login_req: LoginRequest, db: Session = Depends(get_db)):
+    usuario = db.query(UsuarioModel).filter(UsuarioModel.email == login_req.email).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     if not usuario.activo:
         raise HTTPException(status_code=403, detail="Usuario desactivado")
-    if not verify_password(password, usuario.contraseña):
+    if not verify_password(login_req.password, usuario.contraseña):
         raise HTTPException(status_code=400, detail="Contraseña incorrecta")
-
-    # Crear token JWT
+    
     token = create_token({"id_usuario": usuario.id_usuario, "id_rol": usuario.id_rol})
+    return {"success": True, "token": token, "usuario": UsuarioResponse.from_orm(usuario)}
 
-    return {
-        "success": True,
-        "token": token,
-        "usuario": UserResponse.from_orm(usuario)
-    }
+# Ejemplo de endpoint para crear usuario
+@app.post("/api/usuarios", response_model=UsuarioResponse, tags=["Usuarios"])
+def create_usuario(usuario_data: UsuarioCreate, db: Session = Depends(get_db)):
+    existing = db.query(UsuarioModel).filter(UsuarioModel.email == usuario_data.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
+    
+    # Cifrado de contraseña
+    hashed_pw = bcrypt.hashpw(usuario_data.contraseña.encode('utf-8'), bcrypt.gensalt())
+    new_usuario = UsuarioModel(
+        nombre=usuario_data.nombre,
+        email=usuario_data.email,
+        telefono=usuario_data.telefono,
+        contraseña=hashed_pw.decode('utf-8'),
+        fecha_contratacion=datetime.utcnow(),
+        id_rol=usuario_data.id_rol,
+        activo=usuario_data.activo if usuario_data.activo is not None else True
+    )
+    db.add(new_usuario)
+    db.commit()
+    db.refresh(new_usuario)
+    return UsuarioResponse.from_orm(new_usuario)
+
+# (Agrega otros endpoints según corresponda)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=1000, reload=True)
 
 # ------------------------------------- #
 # 🔹 GESTION USUARIOS                 #
