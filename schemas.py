@@ -154,7 +154,7 @@ class ProductoCreate(BaseModel):
     stock_minimo: int
     precio: float
     editorial_o_marca: str
-    fecha_lanzamiento: str
+    fecha_lanzamiento: datetime
     imagen_url: Optional[str]
     id_proveedor: int
 
