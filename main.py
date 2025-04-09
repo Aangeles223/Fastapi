@@ -4,7 +4,7 @@ from typing import List, Optional
 from schemas import OrdenProveedorCreate, ProveedorCreate
 from schemas import  Producto, ProductoCreate, Usuario as UsuarioSchema, UsuarioCreate, Cliente as ClienteSchema, ClienteCreate, NotificacionCliente, NotificacionClienteCreate, Promocion, PromocionCreate
 from database import SessionLocal
-import bcrypt
+import bcrypt 
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from datetime import datetime, timedelta 
@@ -800,4 +800,4 @@ app.add_middleware(
 )
 if __name__ =="__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=1000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
