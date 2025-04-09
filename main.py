@@ -193,28 +193,34 @@ def get_cliente(cliente_id: int, db: Session = Depends(get_db)):
 # Crear un nuevo cliente
 @app.post("/api/clientes", response_model=ClienteSchema, tags=["Clientes"])
 def create_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
+    db_cliente = db.query(ClienteModel).filter(ClienteModel.email == cliente.email).first()
+    if db_cliente:
+        raise HTTPException(status_code=400, detail="El cliente ya existe")
+    
+    # Elimina la parte de cifrado de contraseña
+    new_cliente = ClienteModel(
+        nombre=cliente.nombre,
+        email=cliente.email,
+        telefono=cliente.telefono,
+        direccion=cliente.direccion,
+        nivel_membresia=cliente.nivel_membresia,
+        frecuencia_compra=cliente.frecuencia_compra
+    )
+    
+    print("Agregando cliente...")
+    db.add(new_cliente)
+    
     try:
-        db_cliente = db.query(ClienteModel).filter(ClienteModel.email == cliente.email).first()
-        if db_cliente:
-            raise HTTPException(status_code=400, detail="El cliente ya existe")
-
-        # Crear nuevo cliente
-        new_cliente = ClienteModel(
-            nombre=cliente.nombre,
-            email=cliente.email,
-            telefono=cliente.telefono,
-            direccion=cliente.direccion,
-            nivel_membresia=cliente.nivel_membresia,
-            frecuencia_compra=cliente.frecuencia_compra
-        )
-
-        db.add(new_cliente)
+        print("Commiting...")
         db.commit()  # Guardar en la base de datos
-        db.refresh(new_cliente)  # Asegurarse de que el objeto se refresque con los datos más recientes
-        return new_cliente
+        print("Commit realizado")
     except Exception as e:
-        db.rollback()  # Rollback en caso de error
+        print(f"Error en commit: {e}")
+        db.rollback()  # En caso de error revertir
         raise HTTPException(status_code=500, detail=f"Error al crear cliente: {str(e)}")
+    
+    db.refresh(new_cliente)  # Asegurarse de que el objeto se refresque con los datos más recientes
+    return new_cliente
 
 
 
