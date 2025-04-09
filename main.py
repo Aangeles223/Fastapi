@@ -194,12 +194,12 @@ def get_cliente(cliente_id: int, db: Session = Depends(get_db)):
 @app.post("/api/clientes", response_model=ClienteSchema, tags=["Clientes"])
 def create_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
     try:
-        # Verifica si el cliente ya existe por email
+        # Verificar si el cliente ya existe por email
         db_cliente = db.query(ClienteModel).filter(ClienteModel.email == cliente.email).first()
         if db_cliente:
             raise HTTPException(status_code=400, detail="El cliente ya existe")
 
-        # Crea un nuevo cliente sin asignar id_cliente, ya que es autoincremental
+        # Crear un nuevo cliente sin asignar id_cliente, ya que es autoincremental
         new_cliente = ClienteModel(
             nombre=cliente.nombre,
             email=cliente.email,
@@ -209,16 +209,18 @@ def create_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
             frecuencia_compra=cliente.frecuencia_compra
         )
         
-        # Agrega el cliente a la base de datos
+        # Agregar el cliente a la base de datos
         db.add(new_cliente)
+        print("Cliente agregado a la sesión.")
         db.commit()
+        print("Commit realizado.")
         db.refresh(new_cliente)
+        print(f"Cliente creado: {new_cliente}")
         return new_cliente
     except Exception as e:
         db.rollback()  # Rollback si ocurre algún error
         print(f"Error al insertar cliente: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al insertar cliente: {str(e)}")
-
 
 
 
