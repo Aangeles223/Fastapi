@@ -46,6 +46,13 @@ class Usuario(UsuarioBase):
     class Config:
         orm_mode = True
 
+class UsuarioResponse(UsuarioBase):
+    id_usuario: int
+    activo: bool
+
+    class Config:
+        orm_mode = True
+
 class RoleBase(BaseModel):
     nombre_rol: RolEnum
 
