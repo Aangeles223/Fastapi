@@ -23,7 +23,7 @@ print(f"DB_HOST: {DB_HOST}, DB_USER: {DB_USER}")
 
 
 # Configuración de SQLAlchemy
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"charset": "utf8mb4"})
+engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True, connect_args={"charset": "utf8mb4"})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
