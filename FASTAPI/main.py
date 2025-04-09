@@ -12,11 +12,13 @@ from schemas import OrdenProveedorBase
 from schemas import OrdenProveedorCreate
 from models import UsuarioModel, ClienteModel, NotificacionClienteModel, PromocionModel, ProductoModel, ProveedorModel, OrdenProveedorModel, RecepcionMercanciaModel, MovimientoInventario, UsuarioModel, RoleModel
 from schemas import Proveedor, RecepcionMercanciaBase, RecepcionMercanciaCreate, MovimientoInventarioCreate, MovimientoInventarioResponse, UsuarioCreate, RoleResponse
-
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # Crea una instancia de FastAPI
 app = FastAPI()
+
+
 
 # Clave secreta para JWT
 SECRET_KEY = "tu_secreto"
@@ -783,3 +785,19 @@ def delete_movimiento(id: int, db: Session = Depends(get_db)):
     db.delete(db_movimiento)
     db.commit()
     return {"message": "Movimiento eliminado correctamente"}
+
+
+originis = [
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=originis,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+if __name__ =="__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
