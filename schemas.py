@@ -1,6 +1,6 @@
 import decimal
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
@@ -143,7 +143,7 @@ class Producto(BaseModel):
     id_proveedor: int
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
 
 
 class ProductoCreate(BaseModel):
