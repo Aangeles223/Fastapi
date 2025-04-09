@@ -8,6 +8,11 @@ from models import TipoMovimiento
 
 
 
+# Modelo para la solicitud de login
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 
 # ---------------------------- #
 # 🔹 MODELOS DE USUARIO        #

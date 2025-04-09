@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from schemas import OrdenProveedorCreate, ProveedorCreate
+from schemas import LoginRequest, OrdenProveedorCreate, ProveedorCreate, Usuario
 from schemas import  Producto, ProductoCreate, Usuario as UsuarioSchema, UsuarioCreate, Cliente as ClienteSchema, ClienteCreate, NotificacionCliente, NotificacionClienteCreate, Promocion, PromocionCreate
 from database import SessionLocal
 import bcrypt 
@@ -34,6 +34,20 @@ def get_db():
 
 
 # Endpoints
+
+# Clave secreta para JWT (ya definida más abajo, así que asegúrate de que coincida)
+SECRET_KEY = "tu_secreto"
+ALGORITHM = "HS256"
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # Compara la contraseña en plano con el hash
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+
+def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    expire = datetime.utcnow() + (expires_delta or timedelta(hours=1))
+    data.update({"exp": expire})
+    token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    return token
 
 # ------------------------------------- #
 # 🔹 GESTION LOGIN                     #
@@ -84,6 +98,30 @@ def login_empleado(form_data: UsuarioCreate, db: Session = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer", "usuario": usuario}
 
+
+@app.post("/api/login", response_model=dict)
+async def login(login: LoginRequest, db: Session = Depends(get_db)):
+    # Extraer datos del modelo en lugar de parámetros directos
+    email = login.email
+    password = login.password
+
+    # Buscar usuario en la base de datos
+    usuario = db.query(Usuario).filter(Usuario.email == email).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if not usuario.activo:
+        raise HTTPException(status_code=403, detail="Usuario desactivado")
+    if not verify_password(password, usuario.contraseña):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+
+    # Crear token JWT
+    token = create_token({"id_usuario": usuario.id_usuario, "id_rol": usuario.id_rol})
+
+    return {
+        "success": True,
+        "token": token,
+        "usuario": UserResponse.from_orm(usuario)
+    }
 
 # ------------------------------------- #
 # 🔹 GESTION USUARIOS                 #
