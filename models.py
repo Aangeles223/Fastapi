@@ -45,7 +45,7 @@ class UsuarioModel(Base):
 class ClienteModel(Base):
     __tablename__ = 'clientes'
 
-    id_cliente = Column(Integer, primary_key=True, index=True)
+    id_cliente = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     telefono = Column(String)
