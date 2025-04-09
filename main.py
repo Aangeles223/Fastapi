@@ -42,6 +42,8 @@ def get_db():
     finally:
         db.close()
 
+        
+
 # Funciones helper
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
@@ -55,8 +57,12 @@ def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
 # ------------------------------------- #
 # 🔹 GESTION LOGIN                     #
 # ------------------------------------- #
+# Modificación en main.py, endpoint de login
 @app.post("/api/login", response_model=dict, tags=["Login"])
 def login(login_req: LoginRequest, db: Session = Depends(get_db)):
+    if not login_req.password:
+        raise HTTPException(status_code=400, detail="La contraseña es requerida")
+        
     usuario = db.query(UsuarioModel).filter(UsuarioModel.email == login_req.email).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -67,43 +73,6 @@ def login(login_req: LoginRequest, db: Session = Depends(get_db)):
     
     token = create_token({"id_usuario": usuario.id_usuario, "id_rol": usuario.id_rol})
     return {"success": True, "token": token, "usuario": UsuarioResponse.from_orm(usuario)}
-
-# Ejemplo de endpoint para crear usuario
-@app.post("/api/usuarios", response_model=UsuarioResponse, tags=["Usuarios"])
-def create_usuario(usuario_data: UsuarioCreate, db: Session = Depends(get_db)):
-    existing = db.query(UsuarioModel).filter(UsuarioModel.email == usuario_data.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="El usuario ya existe")
-    
-    # Cifrado de contraseña
-    hashed_pw = bcrypt.hashpw(usuario_data.contraseña.encode('utf-8'), bcrypt.gensalt())
-    new_usuario = UsuarioModel(
-        nombre=usuario_data.nombre,
-        email=usuario_data.email,
-        telefono=usuario_data.telefono,
-        contraseña=hashed_pw.decode('utf-8'),
-        fecha_contratacion=datetime.utcnow(),
-        id_rol=usuario_data.id_rol,
-        activo=usuario_data.activo if usuario_data.activo is not None else True
-    )
-    db.add(new_usuario)
-    db.commit()
-    db.refresh(new_usuario)
-    return UsuarioResponse.from_orm(new_usuario)
-
-# (Agrega otros endpoints según corresponda)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=1000, reload=True)
 
 # ------------------------------------- #
 # 🔹 GESTION USUARIOS                 #
@@ -124,55 +93,54 @@ def get_usuario(usuario_id: int, db: Session = Depends(get_db)):
     return usuario  # Pydantic se encargará de la conversión
 
 # Crear un nuevo usuario
-@app.post("/api/usuarios", response_model=UsuarioSchema, tags=["Usuarios"])
-def create_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
-    db_usuario = db.query(UsuarioModel).filter(UsuarioModel.email == usuario.email).first()
-    if db_usuario:
+# Modificación en main.py, endpoint de creación de usuario
+@app.post("/api/usuarios", response_model=UsuarioResponse, tags=["Usuarios"])
+def create_usuario(usuario_data: UsuarioCreate, db: Session = Depends(get_db)):
+    if not usuario_data.contraseña:
+        raise HTTPException(status_code=400, detail="La contraseña es requerida para crear el usuario")
+        
+    existing = db.query(UsuarioModel).filter(UsuarioModel.email == usuario_data.email).first()
+    if existing:
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     
-    # Cifrar la contraseña
-    hashed_password = bcrypt.hashpw(usuario.contraseña.encode('utf-8'), bcrypt.gensalt())
-
-    # Crear el usuario con la contraseña cifrada y la fecha de contratación
+    # Cifrado de contraseña
+    hashed_pw = bcrypt.hashpw(usuario_data.contraseña.encode('utf-8'), bcrypt.gensalt())
     new_usuario = UsuarioModel(
-        nombre=usuario.nombre,
-        email=usuario.email,
-        telefono=usuario.telefono,
-        contraseña=hashed_password,  # Guardamos el hash de la contraseña
-        fecha_contratacion=datetime.utcnow(),  # Establecer fecha de contratación
-        id_rol=usuario.id_rol,  # Asumiendo que también pasas el id_rol
-        activo=True  # O puedes asignar 'True' o el valor que corresponda según tu lógica
+        nombre=usuario_data.nombre,
+        email=usuario_data.email,
+        telefono=usuario_data.telefono,
+        contraseña=hashed_pw.decode('utf-8'),
+        fecha_contratacion=datetime.utcnow(),
+        id_rol=usuario_data.id_rol,
+        activo=usuario_data.activo if usuario_data.activo is not None else True
     )
     db.add(new_usuario)
     db.commit()
     db.refresh(new_usuario)
-    return new_usuario
+    return UsuarioResponse.from_orm(new_usuario)
 
 
 # Actualizar un usuario
-@app.put("/api/usuarios/{usuario_id}", response_model=UsuarioSchema, tags=["Usuarios"])
+# Modificación en main.py, endpoint de actualización de usuario
+@app.put("/api/usuarios/{usuario_id}", response_model=UsuarioResponse, tags=["Usuarios"])
 def update_usuario(usuario_id: int, usuario: UsuarioCreate, db: Session = Depends(get_db)):
-    # Buscar el usuario en la base de datos
     db_usuario = db.query(UsuarioModel).filter(UsuarioModel.id_usuario == usuario_id).first()
     if db_usuario is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    # Si la contraseña está incluida en la solicitud, la ciframos y la actualizamos
+    
+    # Si se incluye contraseña en la solicitud, actualízala
     if usuario.contraseña:
         hashed_password = bcrypt.hashpw(usuario.contraseña.encode('utf-8'), bcrypt.gensalt())
-        db_usuario.contraseña = hashed_password
-
-    # Actualizar los campos del usuario
+        db_usuario.contraseña = hashed_password.decode('utf-8')
+    
     db_usuario.nombre = usuario.nombre
     db_usuario.email = usuario.email
     db_usuario.telefono = usuario.telefono
     db_usuario.id_rol = usuario.id_rol
-    db_usuario.activo = usuario.activo  # Asegúrate de que 'activo' esté en el esquema de Pydantic
-
+    db_usuario.activo = usuario.activo
     db.commit()
-    db.refresh(db_usuario)  # Refrescar el objeto para obtener los datos actualizados
-    return db_usuario  # Pydantic se encargará de la conversión
-
+    db.refresh(db_usuario)
+    return UsuarioResponse.from_orm(db_usuario)
 
 
 # Eliminar un usuario
