@@ -197,7 +197,6 @@ def create_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
     if db_cliente:
         raise HTTPException(status_code=400, detail="El cliente ya existe")
     
-    # Elimina la parte de cifrado de contraseña
     new_cliente = ClienteModel(
         nombre=cliente.nombre,
         email=cliente.email,
@@ -207,20 +206,15 @@ def create_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
         frecuencia_compra=cliente.frecuencia_compra
     )
     
-    print("Agregando cliente...")
+    print("Agregando cliente a la base de datos...")
     db.add(new_cliente)
+    db.flush()  # Forzar que la consulta se ejecute inmediatamente
+    db.commit()
+    db.refresh(new_cliente)
+    print("Cliente agregado con éxito.")
     
-    try:
-        print("Commiting...")
-        db.commit()  # Guardar en la base de datos
-        print("Commit realizado")
-    except Exception as e:
-        print(f"Error en commit: {e}")
-        db.rollback()  # En caso de error revertir
-        raise HTTPException(status_code=500, detail=f"Error al crear cliente: {str(e)}")
-    
-    db.refresh(new_cliente)  # Asegurarse de que el objeto se refresque con los datos más recientes
     return new_cliente
+
 
 
 
