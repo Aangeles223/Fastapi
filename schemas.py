@@ -1,7 +1,7 @@
 import decimal
 from pydantic import BaseModel
 from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from models import TipoMovimiento
@@ -106,8 +106,8 @@ class Promocion(BaseModel):
     id_producto: int
     descripcion: str
     descuento: Decimal
-    fecha_inicio: date
-    fecha_fin: date
+    fecha_inicio: datetime
+    fecha_fin: datetime
     estado: str
 
     class Config:
@@ -117,8 +117,8 @@ class PromocionCreate(BaseModel):
     id_producto: int
     descripcion: str
     descuento: float
-    fecha_inicio: date
-    fecha_fin: date
+    fecha_inicio: datetime
+    fecha_fin: datetime
     estado: str
 
     class Config:
@@ -138,7 +138,7 @@ class Producto(BaseModel):
     stock_minimo: int
     precio: float
     editorial_o_marca: str
-    fecha_lanzamiento: date
+    fecha_lanzamiento: datetime
     imagen_url: Optional[str] = None
     id_proveedor: int
 
@@ -170,7 +170,7 @@ class Proveedor(BaseModel):
     email: str
     telefono: str
     direccion: str
-    fecha_ultimo_abastecimiento: Optional[date] = None
+    fecha_ultimo_abastecimiento: Optional[datetime] = None
     calificacion: Optional[int] = None
 
 class ProveedorCreate(Proveedor):
@@ -216,8 +216,8 @@ class OrdenProveedorCreate(OrdenProveedorBase):
 class RecepcionMercanciaBase(BaseModel):
     id_proveedor: int
     almacen: str
-    fecha_recepcion: date
-    fecha_documento: Optional[date] = None
+    fecha_recepcion: datetime
+    fecha_documento: Optional[datetime] = None
     numero_documento: Optional[str] = None
     tipo_producto: str
     cantidad: int
